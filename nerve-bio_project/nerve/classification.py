@@ -22,3 +22,15 @@ DC.Coverage:        N/A for this software module.
 DC.Rights:          [e.g., MIT License, Copyright 2025 Autumn Denny]
 ================================================================================
 """
+
+import scispacy
+import spacy
+
+# Setting to sciBERT, we'll see how it goes and adjust as needed. Supposedly SciSpaCy has an entity linker to play with too.
+languageProcessor = spacy.load("en_core_sci_scibert")
+
+
+import os
+for file in os.listdir('test_txts'):
+    
+

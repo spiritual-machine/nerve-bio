@@ -23,16 +23,26 @@ DC.Rights:          TBD
 # v0 is a unit test using scientific PDFs from a known author
 import pymupdf
 import ftfy
-import pytesseract 
+import pytesseract   # nts: actually implement this 
+import os
+
+# TODO: (originally, this is a "proof of concept" before proposing it)
+# 1. Add docstrings and typehints.
+# 2. OO-style classes + enhance modularity
+# 3. clean comments to be more formal
+# 4. Remove as much global stuff as possible (likely when I tie to UI) -> move to a config
+# 5. Implement the pytesseract fallback -> keep scalability in mind and optimize
+# 6. Test if quality score threshold is reasonable on a larger PDF set (mine maybe 100 or so PDFs to test?)
+# 7. Make all unique variable names, keeping consistent.
+
 
 # Global vars
 testPDFDir = 'test_pdfs'
 testTXTDir = 'test_txts'
-# nts: change as needed during testing. If lower than this, use OCR
 qualityScoreThreshold = 0.92
 
 
-# Allowed and disallowed characters... Heuristic overkill.
+# Allowed and disallowed characters.
 # Used Gemini Pro to make a set of allowed characters.
 allowedChars = [
     (0x0020, 0x007E),  # Basic ASCII -> For most common characters in English. 
@@ -64,7 +74,7 @@ def textSlicer(sampleText):
     words = sampleText.split()
     return words
 
-# This is all a heuristic clusterfuck. Sorry.
+# This is all a heuristic ###. Sorry.
 def checkInvalidChars(word):
     """
     Input: word (str | single word)
@@ -88,11 +98,11 @@ def checkInvalidChars(word):
     return isInvalid
 
 # nto: Noticed ligatures and broken accents from test run.
-def cleanText(text):
+def fixText(text):
     """
     Input: text (str | text that was from .txt transcribed from pdf)
-    Output: text (str | text that was cleaned in-place to translate ligatures)
-    Purpose: Replaces ligatures in text that would otherwise be flagged as invalid characters.
+    Output: text (str | text that was fixed in-place to translate ligatures)
+    Purpose: Replaces ligatures and accents in text that would otherwise be flagged as invalid characters.
     """
     # Google's Gemini was used to compile a list of ligatures.
     ligatures = {'ﬀ': 'ff', 'ﬁ': 'fi', 'ﬂ': 'fl', 'ﬃ': 'ffi','ﬄ': 'ffl', 'æ': 'ae','œ': 'oe'}
@@ -102,12 +112,19 @@ def cleanText(text):
     brokenAccents = {'ı´':'í','I´':'Í','i´':'í','I´':'Í','a´':'á','A´':'Á','e´':'é','E´':'É','o´':'ó','O´':'Ó','u´':'ú','U´':'Ú','n~':'ñ','N~':'Ñ','c¸':'ç','C¸':'Ç','a`':'à','A`':'À','e`':'è','E`':'È','i`':'ì','I`':'Ì','o`':'ò','O`':'Ò','u`':'ù','U`':'Ù','a^':'â','A^':'Â','e^':'ê','E^':'Ê','i^':'î','I^':'Î','o^':'ô','O^':'Ô','u^':'û','U^':'Û','a¨':'ä','A¨':'Ä','e¨':'ë','E¨':'Ë','i¨':'ï','I¨':'Ï','o¨':'ö','O¨':'Ö','u¨':'ü','U¨':'Ü'}
     for key in brokenAccents.keys():
         text = text.replace(key, brokenAccents[key])
+    return text
+
+def cleanText(text):
+    """
+    Input: text (str | text that was from the .txt transcribed from pdf)
+    Output: text (str | text that was cleaned in-place to remove wonky unicode characters)
+    Purpose: Removes obviously bad unicode characters.
+    """
     # I *will* just forcibly remove weird characters, man.
     for char in text:
         if char in blackListedChars:
             text = text.replace(char, '')
     text = ftfy.fix_text(text)
-
     return text
 
 
@@ -150,8 +167,9 @@ def transcribePDF(pdfFile):
     textOutput.close()
     with open(txtPath, 'r', encoding = 'utf-8') as file:
         text = file.read()
-        cleanedText = cleanText(text)
-    if checktextQuality(cleanedText) > qualityScoreThreshold:
+        fixedText = fixText(text)
+    if checktextQuality(fixedText) > qualityScoreThreshold:
+        cleanedText = cleanText(fixedText)
         with open(txtPath, 'w', encoding='utf-8') as file:
             file.write(cleanedText)
         print('[NERVE-bio] Extracted PDF: ' + pdfFile)
@@ -161,7 +179,6 @@ def transcribePDF(pdfFile):
 
 
 # nts: remove stuff here that hard codes directory for PDFs; users will input using UI
-import os
 
 for file in os.listdir(testPDFDir):
     transcribePDF(file)
